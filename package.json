@@ -1,0 +1,24 @@
+{
+  "name": "rn-modals",
+  "version": "1.0.0",
+  "description": "ract native\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[D\u001b[Deact native modals",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FgTe/RN-modals.git"
+  },
+  "keywords": [
+    "react",
+    "native",
+    "modal"
+  ],
+  "author": "FgTe",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/FgTe/RN-modals/issues"
+  },
+  "homepage": "https://github.com/FgTe/RN-modals#readme"
+}
