@@ -5,7 +5,7 @@ import withQueuingModal, { QueuingModalContext } from '../with_queuing_modal';
 import PreventableScrollView from '../preventable_scroll_view';
 import ImageModal from './image_modal';
 
-import { vw } from '../../utilities/convert_pixel';
+import { vw } from '../lib/convert_pixel';
 
 class MediaModal extends React.PureComponent {
     static contextType = QueuingModalContext;

@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import {  Image, View, StyleSheet, Animated } from 'react-native';
 
-import withTimer from '../with_timer';
 import Dialogs from '../plain_dialogs';
 import TouchHandler from '../lib/RN_touch_handler';
 
@@ -222,4 +221,4 @@ let imageModalStyle = StyleSheet.create({
     }
 });
 
-export default withTimer(ImageModal);
+export default ImageModal;

@@ -2,7 +2,6 @@ import React from 'react';
 import { View, ScrollView, Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import { PopupHeader } from '../popup';
-import ColorfulButton from '../colorful_button';
 import { QueuingModalContext } from '../with_queuing_modal';
 
 import { convertPixel as cp } from '../lib/convert_pixel'
@@ -63,7 +62,6 @@ class PopupSelector extends React.PureComponent {
                 <ScrollView style={style.options}>
                     {this.props.data ? this.props.data.map(this.renderOption) : null}
                 </ScrollView>
-                <ColorfulButton onPress={this.changeHandler} style={style.button}>{'确    定'}</ColorfulButton>
                 {this.props.children}
             </View>
         )
