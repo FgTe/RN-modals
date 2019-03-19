@@ -1,8 +1,9 @@
 import React from 'react';
-import {  Image, View, StyleSheet, Animated } from 'react-native';
+import { Image, View, StyleSheet, Animated } from 'react-native';
 
+import withTimer from '../with_timer';
 import Dialogs from '../plain_dialogs';
-import TouchHandler from '../lib/RN_touch_handler';
+import TouchHandler from '../../utilities/RN_touch_handler';
 
 class ImageModal extends React.PureComponent {
     constructor (props) {
@@ -16,21 +17,25 @@ class ImageModal extends React.PureComponent {
         this.dimensions = {
             container: {
                 ready: false,
-                width: null,
-                height: null
+                width: 0,
+                height: 0
             },
             image: {
                 ready: false,
-                originalWidth: null,
-                originalHeight: null,
-                x: null,
-                y: null,
-                maxX: null,
-                minX: null,
-                maxY: null,
-                minY: null,
-                width: null,
-                height: null
+                originalWidth: 0,
+                originalHeight: 0,
+                maxWidth: 0,
+                minWidth: 0,
+                maxHeight: 0,
+                minHeight: 0,
+                maxX: 0,
+                minX: 0,
+                maxY: 0,
+                minY: 0,
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0
             }
         };
         this.touchHandler = new TouchHandler({
@@ -50,11 +55,27 @@ class ImageModal extends React.PureComponent {
             width: new Animated.Value(0),
             height: new Animated.Value(0)
         };
-        this.state.offsetLeft.addListener((x) => { this.dimensions.image.x = x.value });
-        this.state.offsetTop.addListener((y) => { this.dimensions.image.y = y.value });
-        this.state.width.addListener((width) => { this.dimensions.image.width = width.value });
-        this.state.height.addListener((height) => { this.dimensions.image.height = height.value });
-        this.animate = null;
+        this.animate = new Animated.Value(0);
+        this.animatedTo = {
+            position: {
+                $x: 0,
+                $y: 0,
+                x: 0,
+                y: 0
+            },
+            $scale: 1,
+            scale: 1
+        };
+        this.animate.addListener((evt) => {
+            var progress = evt.value / 100;
+            this.resolveImageDimensions({
+                x: this.animatedTo.position.x + this.animatedTo.position.$x * progress,
+                y: this.animatedTo.position.y + this.animatedTo.position.$y * progress
+            }, {
+                width: this.animatedTo.size.width + this.animatedTo.size.$width * progress,
+                height: this.animatedTo.size.height + this.animatedTo.size.$height * progress
+            });
+        });
         this.retrieveImageDimensions();
     }
     terminatResponderhandle (evt) {
@@ -66,12 +87,12 @@ class ImageModal extends React.PureComponent {
         }
     }
     startHandle (evt) {
-        this.animate && this.animate.stop();
+        this.animate && this.animate.stopAnimation();
         this.gestureRecord.prev = [evt.nativeEvent];
     }
     moveHandle (evt) {
         if ( evt.nativeEvent.touches.length === 1 && this.gestureRecord.prev.length === 1 ) {
-            this.translateImage(evt.nativeEvent.touches[0].pageX - this.gestureRecord.prev[0].pageX, evt.nativeEvent.touches[0].pageY - this.gestureRecord.prev[0].pageY);
+            this.translateImage(evt.nativeEvent.touches, this.gestureRecord.prev);
         } else if ( evt.nativeEvent.touches.length > 1 && this.gestureRecord.prev.length > 1 ) {
             this.scaleImage(evt.nativeEvent.touches, this.gestureRecord.prev);
         }
@@ -81,11 +102,20 @@ class ImageModal extends React.PureComponent {
         this.props.close();
     }
     doubleClickHandle (evt) {
-        this.resolveImageDimensions('center', this.dimensions.image.width / this.dimensions.image.originalWidth === this.minScale ? 1 : this.minScale, true);
+        let size = {
+            width: this.dimensions.image.width === this.dimensions.image.originalWidth ? this.dimensions.image.minWidth : this.dimensions.image.originalWidth,
+            height: this.dimensions.image.height === this.dimensions.image.originalHeight ? this.dimensions.image.minHeight : this.dimensions.image.originalHeight
+        };
+        this.animationStart(this.centerPosition(size), size);
+    }
+    centerPosition (image) {
+        return {
+            x: ( this.dimensions.container.width - image.width ) / 2,
+            y: ( this.dimensions.container.height - image.height ) / 2
+        }
     }
     retrieveContainerDimensions (event) {
         this.dimensions.container = {
-            ...this.dimensions.container,
             ready: true,
             width: event.nativeEvent.layout.width,
             height: event.nativeEvent.layout.height
@@ -94,16 +124,11 @@ class ImageModal extends React.PureComponent {
     }
     retrieveImageDimensions (...args) {
         Image.getSize(this.props.source.uri, (width, height) => {
-            this.dimensions.image = {
-                ...this.dimensions.image,
-                ready: true,
-                originalWidth: width,
-                originalHeight: height,
-                width,
-                height
-            };
-            this.state.width.setValue(width);
-            this.state.height.setValue(height);
+            this.dimensions.image.ready = true
+            this.dimensions.image.originalWidth = width;
+            this.dimensions.image.originalHeight = height;
+            this.dimensions.image.width = width;
+            this.dimensions.image.height = height;
             this.init();
         }, (err) => {
             Dialogs.open('图片加载失败');
@@ -118,80 +143,88 @@ class ImageModal extends React.PureComponent {
             } else {
                 this.minScale = container.width / container.height > image.width / image.height ? container.height / image.height : container.width / image.width;
             }
-            this.resolveImageDimensions('center', this.minScale);
+            this.dimensions.image.maxWidth = this.dimensions.image.originalWidth * this.maxScale;
+            this.dimensions.image.minWidth = this.dimensions.image.originalWidth * this.minScale;
+            this.dimensions.image.maxHeight = this.dimensions.image.originalHeight * this.maxScale;
+            this.dimensions.image.minHeight = this.dimensions.image.originalHeight * this.minScale;
+            this.resolveImageDimensions(this.centerPosition(this.dimensions.image), {
+                width: this.dimensions.image.minWidth,
+                height: this.dimensions.image.minHeight
+            });
         }
     }
-    resolveImageDimensions (position, scale, animated) {
+    resolveImageDimensions (position, size) {
         let image = this.dimensions.image;
         let container = this.dimensions.container;
-        if ( +scale === scale ) {
-            let $scale = scale > this.maxScale ? this.maxScale : scale < this.minScale ? this.minScale : scale;
-            image.width = image.originalWidth * $scale;
-            image.height = image.originalHeight * $scale;
-            if ( container.width - image.width > 0 ) {
-                image.maxX = image.minX = ( container.width - image.width ) / 2
+        if ( size ) {
+            size.width = size.width > image.maxWidth ? image.maxWidth : size.width < image.minWidth ? image.minWidth : size.width;
+            size.height = size.height > image.maxHeight ? image.maxHeight : size.height < image.minHeight ? image.minHeight : size.height;
+            if ( container.width - size.width > 0 ) {
+                image.maxX = image.minX = ( container.width - size.width ) / 2
             } else {
                 image.maxX = 0;
-                image.minX = container.width - image.width;
+                image.minX = container.width - size.width;
             }
             if ( container.height - image.height > 0 ) {
-                image.maxY = image.minY = ( container.height - image.height ) / 2;
+                image.maxY = image.minY = ( container.height - size.height ) / 2;
             } else {
                 image.maxY = 0;
-                image.minY = container.height - image.height;
+                image.minY = container.height - size.height;
             }
+            image.width = size.width;
+            image.height = size.height;
         }
-        if ( position === 'center' ) {
-            image.x = ( container.width - image.width ) / 2;
-            image.y = ( container.height - image.height ) / 2;
-        } else {
+        if ( position ) {
             image.x = position.x > image.maxX ? image.maxX : position.x < image.minX ? image.minX : position.x;
             image.y = position.y > image.maxY ? image.maxY : position.y < image.minY ? image.minY : position.y;
         }
-        if ( animated ) {
-            this.animate = Animated.parallel([
-                Animated.timing(this.state.offsetLeft, { toValue: image.x, duration: 300 }),
-                Animated.timing(this.state.offsetTop, { toValue: image.y, duration: 300 }),
-                Animated.timing(this.state.width, { toValue: image.width, duration: 300 }),
-                Animated.timing(this.state.height, { toValue: image.height, duration: 300 })
-            ]);
-            this.animate.start();
-        } else {
-            this.state.offsetLeft.setValue(image.x);
-            this.state.offsetTop.setValue(image.y);
-            this.state.width.setValue(image.width);
-            this.state.height.setValue(image.height);
-        }
+        this.setUpDimensions(image);
     }
-    translateImage (x, y) {
-        let positionX = x + this.dimensions.image.x;
-        let positionY = y + this.dimensions.image.y;
+    animationStart (position, size) {
+        this.animatedTo = {
+            position: {
+                $x: position.x - this.dimensions.image.x,
+                $y: position.y - this.dimensions.image.y,
+                x: this.dimensions.image.x,
+                y: this.dimensions.image.y
+            },
+            size: {
+                $width: size.width - this.dimensions.image.width,
+                $height: size.height - this.dimensions.image.height,
+                width: this.dimensions.image.width,
+                height: this.dimensions.image.height
+            }
+        }
+        this.animate.setValue(0);
+        Animated.timing(this.animate, { toValue: 100, duration: 300}).start();
+    }
+    setUpDimensions (dimensions) {
+        this.state.offsetLeft.setValue(dimensions.x);
+        this.state.offsetTop.setValue(dimensions.y);
+        this.state.width.setValue(dimensions.width);
+        this.state.height.setValue(dimensions.height);
+    }
+    translateImage (current, prev) {
         this.resolveImageDimensions({
-            x: positionX > this.dimensions.image.maxX ? this.dimensions.image.maxX : positionX < this.dimensions.image.minX ? this.dimensions.image.minX : positionX,
-            y: positionY > this.dimensions.image.maxY ? this.dimensions.image.maxY : positionY < this.dimensions.image.minY ? this.dimensions.image.minY : positionY
+            x: current[0].pageX - prev[0].pageX + this.dimensions.image.x,
+            y: current[0].pageY - prev[0].pageY + this.dimensions.image.y
         });
     }
     scaleImage (current, prev) {
         let image = this.dimensions.image;
         let x1 = current[0].pageX - current[current.length - 1].pageX;
         let y1 = current[0].pageY - current[current.length - 1].pageY;
-        let midpoint1 = {
-            x: current[0].pageX - ( x1 ) / 2,
-            y: current[0].pageY - ( y1 ) / 2
-        };
         let x2 = prev[0].pageX - prev[prev.length - 1].pageX;
         let y2 = prev[0].pageY - prev[prev.length - 1].pageY;
-        let midpoint2 = {
-            x: prev[0].pageX - ( x2 ) / 2,
-            y: prev[0].pageY - ( y2 ) / 2
-        };
-        let $scale = ( Math.sqrt(x1 * x1 + y1 * y1) - Math.sqrt(x2 * x2 + y2 * y2) ) / image.width;
-        let scale = image.width / image.originalWidth + $scale;
+        let size = {
+            width: image.width + x1 - x2,
+            height: image.height + y1 - y2
+        }
         let position = {
-            x: image.x + ( midpoint1.x - midpoint2.x ) - $scale * image.width * ( midpoint2.x - image.x ) / image.width,
-            y: image.y + ( midpoint1.y - midpoint2.y ) - $scale * image.height * ( midpoint2.y - image.y ) / image.height
+            x: image.x + prev[0].pageX - current[0].pageX,
+            y: image.y + prev[0].pageY - current[0].pageY
         };
-        this.resolveImageDimensions(position, scale);
+        this.resolveImageDimensions(position, size);
     }
     componentDidUpdate (prevProps) {
         if ( prevProps.source !== this.props.source ) {
@@ -199,7 +232,7 @@ class ImageModal extends React.PureComponent {
         }
     }
     componentWillUnmount () {
-        this.animate && this.animate.stop();
+        this.animate && this.animate.stopAnimation();
     }
     render () {
         return (
@@ -221,4 +254,4 @@ let imageModalStyle = StyleSheet.create({
     }
 });
 
-export default ImageModal;
+export default withTimer(ImageModal);
