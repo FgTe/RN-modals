@@ -216,13 +216,20 @@ class ImageModal extends React.PureComponent {
         let y1 = current[0].pageY - current[current.length - 1].pageY;
         let x2 = prev[0].pageX - prev[prev.length - 1].pageX;
         let y2 = prev[0].pageY - prev[prev.length - 1].pageY;
+        let $scale = ( Math.sqrt(x1 * x1 + y1 * y1) - Math.sqrt(x2 * x2 + y2 * y2) ) / image.width;
+        scale = ( 1 + $scale ) * image.width / image.originalWidth;
+        scale = scale > this.maxScale ? this.maxScale : scale < this.minScale ? this.minScale : scale;
         let size = {
-            width: image.width + x1 - x2,
-            height: image.height + y1 - y2
+            width: image.originalWidth * scale,
+            height: image.originalHeight * scale
         }
+        let middleX1 = current[0].pageX + x1 / 2;
+        let middleY1 = current[0].pageY + y1 / 2;
+        let middleX2 = prev[0].pageX + x2 / 2;
+        let middleY2 = prev[0].pageY + y2 / 2;
         let position = {
-            x: image.x + prev[0].pageX - current[0].pageX,
-            y: image.y + prev[0].pageY - current[0].pageY
+            x: image.x - ( middleX2 - image.x ) / image.width * ( size.width - image.width ) - middleX1 + middleX2,
+            y: image.y - ( middleY2 - image.y ) / image.height * ( size.height - image.height ) - middleY1 + middleY2
         };
         this.resolveImageDimensions(position, size);
     }
