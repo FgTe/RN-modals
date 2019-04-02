@@ -49,12 +49,6 @@ class ImageModal extends React.PureComponent {
         this.gestureRecord = {
             prev: []/*nativeEvent.touches*/
         };
-        this.state = {
-            offsetLeft: new Animated.Value(0),
-            offsetTop: new Animated.Value(0),
-            width: new Animated.Value(0),
-            height: new Animated.Value(0)
-        };
         this.animate = new Animated.Value(0);
         this.animatedTo = {
             position: {
@@ -141,12 +135,13 @@ class ImageModal extends React.PureComponent {
             if ( image.width < container.width && image.height < container.height ) {
                 this.minScale = 1;
             } else {
-                this.minScale = container.width / container.height > image.width / image.height ? container.height / image.height : container.width / image.width;
+                this.minScale = container.width / container.height > image.originalWidth / image.originalHeight ? container.height / image.originalHeight : container.width / image.originalWidth;
             }
             this.dimensions.image.maxWidth = this.dimensions.image.originalWidth * this.maxScale;
             this.dimensions.image.minWidth = this.dimensions.image.originalWidth * this.minScale;
             this.dimensions.image.maxHeight = this.dimensions.image.originalHeight * this.maxScale;
             this.dimensions.image.minHeight = this.dimensions.image.originalHeight * this.minScale;
+            
             this.resolveImageDimensions(this.centerPosition(this.dimensions.image), {
                 width: this.dimensions.image.minWidth,
                 height: this.dimensions.image.minHeight
@@ -199,10 +194,12 @@ class ImageModal extends React.PureComponent {
         Animated.timing(this.animate, { toValue: 100, duration: 300}).start();
     }
     setUpDimensions (dimensions) {
-        this.state.offsetLeft.setValue(dimensions.x);
-        this.state.offsetTop.setValue(dimensions.y);
-        this.state.width.setValue(dimensions.width);
-        this.state.height.setValue(dimensions.height);
+        this.image.current.setNativeProps({
+            top: dimensions.y,
+            left: dimensions.x,
+            width: dimensions.width,
+            height: dimensions.height
+        })
     }
     translateImage (current, prev) {
         this.resolveImageDimensions({
@@ -223,13 +220,13 @@ class ImageModal extends React.PureComponent {
             width: image.originalWidth * scale,
             height: image.originalHeight * scale
         }
-        let middleX1 = current[0].pageX + x1 / 2;
-        let middleY1 = current[0].pageY + y1 / 2;
-        let middleX2 = prev[0].pageX + x2 / 2;
-        let middleY2 = prev[0].pageY + y2 / 2;
+        let middleX1 = current[0].pageX - x1 / 2;
+        let middleY1 = current[0].pageY - y1 / 2;
+        let middleX2 = prev[0].pageX - x2 / 2;
+        let middleY2 = prev[0].pageY - y2 / 2;
         let position = {
-            x: image.x - ( middleX2 - image.x ) / image.width * ( size.width - image.width ) - middleX1 + middleX2,
-            y: image.y - ( middleY2 - image.y ) / image.height * ( size.height - image.height ) - middleY1 + middleY2
+            x: image.x - ( middleX2 - image.x ) / image.width * ( size.width - image.width ) + ( middleX1 - middleX2 ),
+            y: image.y - ( middleY2 - image.y ) / image.height * ( size.height - image.height ) + ( middleY1 - middleY2 )
         };
         this.resolveImageDimensions(position, size);
     }
@@ -244,7 +241,7 @@ class ImageModal extends React.PureComponent {
     render () {
         return (
             <View onLayout={this.retrieveContainerDimensions} style={imageModalStyle.container}>
-                <Animated.Image ref={this.image} style={[imageModalStyle.image, { top: this.state.offsetTop, left: this.state.offsetLeft, width: this.state.width, height: this.state.height }]} {...this.touchHandler.responderHandle} {...this.props}/>
+                <Animated.Image ref={this.image} style={imageModalStyle.image} {...this.touchHandler.responderHandle} {...this.props}/>
             </View>
         )
     }
